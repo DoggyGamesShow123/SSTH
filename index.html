@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MAME (Web) — Auto‑load ROM from DoggyGamesShow123/SSTH</title>
+  <style>
+    html,body{height:100%;margin:0;background:#000;color:#ddd;font:14px/1.4 system-ui,Segoe UI,Roboto,Arial,sans-serif}
+    .wrap{display:grid;grid-template-rows:auto 1fr;min-height:100%}
+    header{padding:10px 12px;background:#111;border-bottom:1px solid #222}
+    a{color:#6cf;text-decoration:none}
+    .status{font-size:13px;opacity:.9}
+    .game{width:100%;height:calc(100vh - 70px);max-width:100%}
+    #game{width:100%;height:100%}
+    code{background:#111;padding:2px 4px;border-radius:4px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <strong>MAME 2003 in your browser</strong>
+      <span style="opacity:.75"> — ROM auto‑fetched from <a href="https://github.com/DoggyGamesShow123/SSTH" target="_blank" rel="noopener">DoggyGamesShow123/SSTH</a></span>
+      <div id="status" class="status" style="margin-top:6px">Fetching file list…</div>
+    </header>
+
+    <div class="game"><div id="game"></div></div>
+  </div>
+
+  <script>
+    // EmulatorJS CDN base (see: https://emulatorjs.org/docs/cdn/)
+    const EJS_DATA_BASE = 'https://cdn.emulatorjs.org/stable/data/';
+    const statusEl = document.getElementById('status');
+
+    // Helper: load EmulatorJS loader *after* we know ROM URL and variables are set
+    function loadEmulatorLoader() {
+      const s = document.createElement('script');
+      s.src = EJS_DATA_BASE + 'loader.js';
+      s.async = true;
+      s.onerror = () => statusEl.textContent = 'Failed to load EmulatorJS loader.';
+      document.body.appendChild(s);
+    }
+
+    async function boot() {
+      try {
+        // 1) Ask GitHub Contents API for the repo root (expects exactly one file)
+        // Docs: https://docs.github.com/en/rest/repos/contents
+        const api = 'https://api.github.com/repos/DoggyGamesShow123/SSTH/contents';
+        const res = await fetch(api, { headers: { 'Accept': 'application/vnd.github+json' }});
+        if (!res.ok) throw new Error('GitHub API responded ' + res.status);
+        const listing = await res.json();
+
+        if (!Array.isArray(listing) || listing.length !== 1) {
+          throw new Error('Expected exactly one file in SSTH repo; found ' + (Array.isArray(listing) ? listing.length : 'unknown'));
+        }
+
+        const file = listing[0];
+        if (!file || !file.download_url) {
+          throw new Error('Could not obtain download_url from GitHub API response.');
+        }
+
+        const romUrl = file.download_url; // raw.githubusercontent.com link
+        statusEl.innerHTML = `Loading ROM: <code>${romUrl}</code>`;
+
+        // 2) Configure EmulatorJS (documented for MAME 2003)
+        // Docs: https://emulatorjs.org/docs/systems/mame-2003/
+        window.EJS_player = '#game';
+        window.EJS_core = 'mame2003';
+        window.EJS_gameUrl = romUrl;       // the ROM zip from the repo
+        window.EJS_pathtodata = EJS_DATA_BASE;
+
+        // 3) Load the EmulatorJS loader
+        loadEmulatorLoader();
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = 'Error: ' + err.message;
+      }
+    }
+
+    boot();
+  </script>
+</body>
+</html>
